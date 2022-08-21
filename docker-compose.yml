@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  local-1:
+  localsecret-1:
     ports:
       - "26657:26657"
       - "26656:26656"
@@ -9,7 +9,7 @@ services:
       - "1337:1337"
       - "1317:1317"
     image: "ghcr.io/scrtlabs/localsecret:test"
-  local-2:
+  localsecret-2:
     ports:
       - "36657:26657"
       - "36656:26656"
@@ -20,3 +20,6 @@ services:
     environment:
         CHAINID: "secretdev-2"
     image: "ghcr.io/scrtlabs/localsecret:test"
+  relayer:
+    image: "hermes:test"
+

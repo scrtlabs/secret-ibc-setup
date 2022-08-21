@@ -23,12 +23,7 @@ COPY ["./50s03.mnemonic", "/home/hermes-user/50s03.mnemonic"]
 RUN ["hermes", "keys", "add", "--hd-path", "m/44'/529'/0'/0/0", "--mnemonic-file", "/home/hermes-user/50s03.mnemonic", "--chain", "secretdev-1"]
 RUN ["hermes", "keys", "add", "--hd-path", "m/44'/529'/0'/0/0", "--mnemonic-file", "/home/hermes-user/50s03.mnemonic", "--chain", "secretdev-2"]
 
-## enable unsafe cors in the configuration file:
-#RUN ["sed", "-i", "-E", "25i sed -i -E \"/enable-unsafe-cors/ s/= .*/= true/\" /root/.secretd/config/app.toml", "/root/bootstrap_init.sh"]
-## fast block time
-#RUN ["sed", "-i", "-E", "25i sed -i -E \"/timeout_(propose|prevote|precommit|commit)/s/[0-9]+m?s/900ms/\" /root/.secretd/config/config.toml", "/root/bootstrap_init.sh"]
-
-#ENTRYPOINT ["hermes", "start"]
-
-#for debugging purposes
-ENTRYPOINT ["tail", "-f", "/dev/null"]
+# start hermes
+COPY --chown=hermes-user ["./entrypoint-hermes.sh", "/home/hermes-user/entrypoint.sh"]
+RUN  ["chmod", "+x", "/home/hermes-user/entrypoint.sh"]
+ENTRYPOINT ["/home/hermes-user/entrypoint.sh"]
