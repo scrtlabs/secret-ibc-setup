@@ -31,5 +31,5 @@ scli q bank balances <a-address>
 secretcli config node http://localhost:36657
 
 # check that you have an ibc-denom
-secretcli q bank balances <dst-b> # should have 1234 ibc denom
+secretcli q bank balances <dst-b> # should have 2 ibc denom
 ```
