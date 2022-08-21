@@ -1,6 +1,8 @@
 version: "3.9"
 services:
   localsecret-1:
+    # ports are only here in case interaction 
+    # between localhost and container is desired
     ports:
       - "26657:26657"
       - "26656:26656"
@@ -10,7 +12,9 @@ services:
       - "1317:1317"
     image: "ghcr.io/scrtlabs/localsecret:test"
   localsecret-2:
-    ports:
+    # ports are only here in case interaction 
+    # between localhost and container is desired
+    ports: 
       - "36657:26657"
       - "36656:26656"
       - "9391:9091"
