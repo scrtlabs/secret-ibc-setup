@@ -3,9 +3,6 @@
 # FROM golang:latest
 FROM ubuntu:latest
 
-# install rust  
-#RUN ["curl", "--proto", "'=https'", "--tlsv1.2", "-sSf", "https://sh.rustup.rs", "|", "sh"]
-
 # add hermes user
 RUN ["useradd", "-ms", "/bin/bash", "hermes-user"]
 USER hermes-user 
