@@ -2,19 +2,19 @@
 Two local secrets can Inter-blockchainly communicate with each other via a Hermes relayer
 
 ### Build
-```
+```bash
 docker build -f hermes.Dockerfile . --tag hermes:test
 ```
 
 ### Run
-```
+```bash
 docker compose up
 ```
 
 ### Verify IBC transfers
 Assuming you have a key 'a' which is not the relayer's key,
 from localhost:
-```
+```bash
 # be on the source network (secretdev-1)
 secretcli config node http://localhost:26657
 
