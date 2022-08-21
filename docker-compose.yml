@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  local-1:
+    ports:
+      - "26657:26657"
+      - "26656:26656"
+      - "9090:9090"
+      - "9091:9091"
+      - "1337:1337"
+      - "1317:1317"
+    image: "ghcr.io/scrtlabs/localsecret:test"
+  local-2:
+    ports:
+      - "36657:26657"
+      - "36656:26656"
+      - "9391:9091"
+      - "9390:9090"
+      - "3337:1337"
+      - "3317:1317"
+    environment:
+        CHAINID: "secretdev-2"
+    image: "ghcr.io/scrtlabs/localsecret:test"
