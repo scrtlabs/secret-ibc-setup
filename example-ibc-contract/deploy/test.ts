@@ -99,6 +99,8 @@ beforeAll(async () => {
 
   contracts["secretdev-1"].address = tx.arrayLog.find((x) => x.key === "contract_address").value;
   contracts["secretdev-1"].ibcPortId = "wasm." + contracts["secretdev-1"].address;
+  console.log("contract on secretdev-1 got address:", contracts["secretdev-1"].address);
+  fs.writeFileSync("./contract-addresses.log", contracts["secretdev-1"].address + "\n");
 
   console.log("Storing contracts on secretdev-2...");
   tx = await storeContracts(accounts2[0].secretjs, [wasmCode]);
@@ -112,6 +114,8 @@ beforeAll(async () => {
 
   contracts["secretdev-2"].address = tx.arrayLog.find((x) => x.key === "contract_address").value;
   contracts["secretdev-2"].ibcPortId = "wasm." + contracts["secretdev-2"].address;
+  console.log("contract on secretdev-2 got address:", contracts["secretdev-2"].address);
+  fs.appendFileSync("./contract-addresses.log", contracts["secretdev-2"].address);
 });
 
 describe("IBC", () => {
