@@ -171,20 +171,14 @@ export async function storeContracts(
   wasms: Uint8Array[]
 ) {
   const tx: Tx = await account.tx.broadcast(
-    [
-      new MsgStoreCode({
+    wasms.map(wasm => new MsgStoreCode(
+      {
         sender: account.address,
-        wasmByteCode: wasms[0],
+        wasmByteCode: wasm,
         source: "",
         builder: "",
-      }),
-      new MsgStoreCode({
-        sender: account.address,
-        wasmByteCode: wasms[1],
-        source: "",
-        builder: "",
-      }),
-    ],
+      }
+    )),
     { gasLimit: 5_000_000 }
   );
 
@@ -198,25 +192,19 @@ export async function storeContracts(
 
 export async function instantiateContracts(
   account: SecretNetworkClient,
-  contracts: Contract[]
+  contracts: Contract[],
+  initMsg: {},
 ) {
   const tx: Tx = await account.tx.broadcast(
-    [
-      new MsgInstantiateContract({
+    contracts.map(contract => new MsgInstantiateContract(
+      {
         sender: account.address,
-        codeId: contracts[0].codeId,
-        codeHash: contracts[0].codeHash,
-        initMsg: { nop: {} },
+        codeId: contract.codeId,
+        codeHash: contract.codeHash,
+        initMsg: initMsg,
         label: `v1-${Date.now()}`,
-      }),
-      new MsgInstantiateContract({
-        sender: account.address,
-        codeId: contracts[1].codeId,
-        codeHash: contracts[1].codeHash,
-        initMsg: { nop: {} },
-        label: `v010-${Date.now()}`,
-      }),
-    ],
+      }
+    )),
     { gasLimit: 300_000 }
   );
   if (tx.code !== TxResultCode.Success) {

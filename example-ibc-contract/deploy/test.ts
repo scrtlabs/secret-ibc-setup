@@ -4,21 +4,12 @@ import * as fs from "fs";
 import {
   fromBase64,
   fromUtf8,
-  MsgExecuteContract,
-  ProposalType,
   SecretNetworkClient,
-  toBase64,
   toHex,
-  toUtf8,
   Tx,
   TxResultCode,
   Wallet,
 } from "secretjs";
-import {
-  QueryBalanceRequest,
-  QueryBalanceResponse,
-} from "secretjs/dist/protobuf_stuff/cosmos/bank/v1beta1/query";
-import { MsgSend } from "secretjs/dist/protobuf_stuff/cosmos/bank/v1beta1/tx";
 import { AminoWallet } from "secretjs/dist/wallet_amino";
 import {
   ibcDenom,
@@ -42,8 +33,8 @@ type Account = {
 
 // @ts-ignore
 // accounts on secretdev-1
-const accounts: Account[] = new Array(accountsCount);
-const accounts2: Account[] = new Array(3);
+const accounts: Account[] = new Array(2);
+const accounts2: Account[] = new Array(2);
 let readonly: SecretNetworkClient;
 let readonly2: SecretNetworkClient;
 
@@ -53,11 +44,11 @@ const contracts = {
   "secretdev-2": new Contract,
 };
 
-const populateAccounts = async (mnemonics, chainId, endpoint) => {
+const populateAccounts = async (accountList, mnemonics, chainId, endpoint) => {
   for (let i = 0; i < mnemonics.length; i++) {
     const mnemonic = mnemonics[i];
     const walletAmino = new AminoWallet(mnemonic);
-    accounts[i] = {
+    accountList[i] = {
       address: walletAmino.address,
       mnemonic: mnemonic,
       walletAmino,
@@ -74,14 +65,14 @@ const populateAccounts = async (mnemonics, chainId, endpoint) => {
 
 beforeAll(async () => {
   const mnemonics = [
-    "grant rice replace explain federal release fix clever romance raise often wild taxi quarter soccer fiber love must tape steak together observe swap guitar",
-    "jelly shadow frog dirt dragon use armed praise universe win jungle close inmate rain oil canvas beauty pioneer chef soccer icon dizzy thunder meadow",
+    "chair love bleak wonder skirt permit say assist aunt credit roast size obtain minute throw sand usual age smart exact enough room shadow charge",
+    "word twist toast cloth movie predict advance crumble escape whale sail such angry muffin balcony keen move employ cook valve hurt glimpse breeze brick",
   ];
 
   await Promise.all([
     // Create clients for existing wallets in the chains
-    populateAccounts(mnemonics, "secretdev-1", "http://localhost:9091"),
-    populateAccounts(mnemonics, "secretdev-2", "http://localhost:9391"),
+    populateAccounts(accounts, mnemonics, "secretdev-1", "http://localhost:9091"),
+    populateAccounts(accounts2, mnemonics, "secretdev-2", "http://localhost:9391"),
 
     // Create readonly clients
     SecretNetworkClient.create({chainId: "secretdev-1", grpcWebUrl: "http://localhost:9091"}).then(result => readonly = result),
@@ -97,26 +88,26 @@ beforeAll(async () => {
   contracts["secretdev-2"].codeHash = toHex(sha256(wasmCode));
 
   console.log("Storing contracts on secretdev-1...");
-  let tx: Tx = await storeContracts(accounts[0].secretjs, [wasmCode);
+  let tx: Tx = await storeContracts(accounts[0].secretjs, [wasmCode]);
   expect(tx.code).toBe(TxResultCode.Success);
 
   contracts["secretdev-1"].codeId = Number(tx.arrayLog.find((x) => x.key === "code_id").value);
 
   console.log("Instantiating contracts on secretdev-1...");
-  tx = await instantiateContracts(accounts[0].secretjs, [contracts["secretdev-1"]]);
+  tx = await instantiateContracts(accounts[0].secretjs, [contracts["secretdev-1"]], { init: {}});
   expect(tx.code).toBe(TxResultCode.Success);
 
   contracts["secretdev-1"].address = tx.arrayLog.find((x) => x.key === "contract_address").value;
   contracts["secretdev-1"].ibcPortId = "wasm." + contracts["secretdev-1"].address;
 
   console.log("Storing contracts on secretdev-2...");
-  tx = await storeContracts(accounts2[0].secretjs, [wasmCode);
+  tx = await storeContracts(accounts2[0].secretjs, [wasmCode]);
   expect(tx.code).toBe(TxResultCode.Success);
 
   contracts["secretdev-2"].codeId = Number(tx.arrayLog.find((x) => x.key === "code_id").value);
 
   console.log("Instantiating contracts on secretdev-2...");
-  tx = await instantiateContracts(accounts2[0].secretjs, [contracts["secretdev-2"]]);
+  tx = await instantiateContracts(accounts2[0].secretjs, [contracts["secretdev-2"]], { init: {}});
   expect(tx.code).toBe(TxResultCode.Success);
 
   contracts["secretdev-2"].address = tx.arrayLog.find((x) => x.key === "contract_address").value;
@@ -125,29 +116,29 @@ beforeAll(async () => {
 
 describe("IBC", () => {
   beforeAll(async () => {
-    await waitForIBCConnection("secretdev-1", "http://localhost:9091");
-    await waitForIBCConnection("secretdev-2", "http://localhost:9391");
-
-    await waitForIBCChannel(
-      "secretdev-1",
-      "http://localhost:9091",
-      "channel-0"
-    );
-    await waitForIBCChannel(
-      "secretdev-2",
-      "http://localhost:9391",
-      "channel-0"
-    );
+    // await waitForIBCConnection("secretdev-1", "http://localhost:9091");
+    // await waitForIBCConnection("secretdev-2", "http://localhost:9391");
+    //
+    // await waitForIBCChannel(
+    //   "secretdev-1",
+    //   "http://localhost:9091",
+    //   "channel-0"
+    // );
+    // await waitForIBCChannel(
+    //   "secretdev-2",
+    //   "http://localhost:9391",
+    //   "channel-0"
+    // );
+    // console.log("channels are opened, can continue...");
   }, 180_000 /* 3 minutes */);
 
-  test("transfer sanity", async () => {
+  test.only("transfer sanity", async () => {
+    console.log("starting transfer sanity");
     const denom = ibcDenom(
-      [
-        {
+      [{
           portId: "transfer",
           channelId: "channel-0",
-        },
-      ],
+        },],
       "uscrt"
     );
     const { balance: balanceBefore } = await readonly2.query.bank.balance({
@@ -156,6 +147,7 @@ describe("IBC", () => {
     });
     const amountBefore = Number(balanceBefore?.amount ?? "0");
 
+    console.log("starting transfer");
     const result = await accounts[0].secretjs.tx.ibc.transfer({
       receiver: accounts[0].address,
       sender: accounts[0].address,
@@ -175,6 +167,8 @@ describe("IBC", () => {
     expect(result.code).toBe(TxResultCode.Success);
 
     // checking ack/timeout on secretdev-1 might be cleaner
+
+    console.log("starting query");
     while (true) {
       try {
         const { balance: balanceAfter } = await readonly2.query.bank.balance({
@@ -200,8 +194,8 @@ describe("IBC", () => {
       "--config /home/hermes-user/.hermes/alternative-config.toml " +
       "create channel " +
       "--a-chain secretdev-1 " +
-      `--a-port ${contracts["secretdev-1"].v1.ibcPortId} ` +
-      `--b-port ${contracts["secretdev-2"].v1.ibcPortId} ` +
+      `--a-port ${contracts["secretdev-1"].ibcPortId} ` +
+      `--b-port ${contracts["secretdev-2"].ibcPortId} ` +
       "--a-connection connection-0";
 
     console.log("calling relayer with command:", command);
@@ -219,8 +213,8 @@ describe("IBC", () => {
     const tx = await accounts[0].secretjs.tx.compute.executeContract(
       {
         sender: accounts[0].address,
-        contractAddress: contracts["secretdev-1"].v1.address,
-        codeHash: contracts["secretdev-1"].v1.codeHash,
+        contractAddress: contracts["secretdev-1"].address,
+        codeHash: contracts["secretdev-1"].codeHash,
         msg: {
           send_ibc_packet: {
             message: "hello from test",
@@ -247,7 +241,7 @@ describe("IBC", () => {
       "docker exec ibc-relayer-1 hermes " +
       "--config /home/hermes-user/.hermes/alternative-config.toml " +
       "tx packet-recv --dst-chain secretdev-2 --src-chain secretdev-1 " +
-      `--src-port ${contracts["secretdev-1"].v1.ibcPortId} ` +
+      `--src-port ${contracts["secretdev-1"].ibcPortId} ` +
       `--src-channel ${channelId}`;
 
     console.log(
@@ -264,7 +258,7 @@ describe("IBC", () => {
       "docker exec ibc-relayer-1 hermes " +
       "--config /home/hermes-user/.hermes/alternative-config.toml " +
       "tx packet-ack --dst-chain secretdev-1 --src-chain secretdev-2 " +
-      `--src-port ${contracts["secretdev-1"].v1.ibcPortId} ` +
+      `--src-port ${contracts["secretdev-1"].ibcPortId} ` +
       `--src-channel ${channelId}`;
 
     console.log(
@@ -279,8 +273,8 @@ describe("IBC", () => {
 
     let queryResult: any =
       await accounts[0].secretjs.query.compute.queryContract({
-        contractAddress: contracts["secretdev-1"].v1.address,
-        codeHash: contracts["secretdev-1"].v1.codeHash,
+        contractAddress: contracts["secretdev-1"].address,
+        codeHash: contracts["secretdev-1"].codeHash,
         query: {
           last_ibc_ack: {},
         },
@@ -291,8 +285,8 @@ describe("IBC", () => {
     expect(ack).toBe(`recv${channelId}hello from test`);
 
     queryResult = await accounts2[0].secretjs.query.compute.queryContract({
-      contractAddress: contracts["secretdev-2"].v1.address,
-      codeHash: contracts["secretdev-2"].v1.codeHash,
+      contractAddress: contracts["secretdev-2"].address,
+      codeHash: contracts["secretdev-2"].codeHash,
       query: {
         last_ibc_ack: {},
       },
@@ -301,8 +295,8 @@ describe("IBC", () => {
     expect(queryResult).toBe(`no ack yet`);
 
     queryResult = await accounts[0].secretjs.query.compute.queryContract({
-      contractAddress: contracts["secretdev-1"].v1.address,
-      codeHash: contracts["secretdev-1"].v1.codeHash,
+      contractAddress: contracts["secretdev-1"].address,
+      codeHash: contracts["secretdev-1"].codeHash,
       query: {
         last_ibc_receive: {},
       },
@@ -311,8 +305,8 @@ describe("IBC", () => {
     expect(queryResult).toBe(`no receive yet`);
 
     queryResult = await accounts2[0].secretjs.query.compute.queryContract({
-      contractAddress: contracts["secretdev-2"].v1.address,
-      codeHash: contracts["secretdev-2"].v1.codeHash,
+      contractAddress: contracts["secretdev-2"].address,
+      codeHash: contracts["secretdev-2"].codeHash,
       query: {
         last_ibc_receive: {},
       },
