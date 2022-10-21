@@ -33,3 +33,6 @@ secretcli config node http://localhost:36657
 # check that you have an ibc-denom
 secretcli q bank balances <dst-b> # should have 2 ibc denom
 ```
+
+### Verify IBC Between contracts
+the `example-ibc-contrcat/deploy` folder has further instructions
