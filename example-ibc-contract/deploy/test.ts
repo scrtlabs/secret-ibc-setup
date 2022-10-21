@@ -120,20 +120,20 @@ beforeAll(async () => {
 
 describe("IBC", () => {
   beforeAll(async () => {
-    // await waitForIBCConnection("secretdev-1", "http://localhost:9091");
-    // await waitForIBCConnection("secretdev-2", "http://localhost:9391");
-    //
-    // await waitForIBCChannel(
-    //   "secretdev-1",
-    //   "http://localhost:9091",
-    //   "channel-0"
-    // );
-    // await waitForIBCChannel(
-    //   "secretdev-2",
-    //   "http://localhost:9391",
-    //   "channel-0"
-    // );
-    // console.log("channels are opened, can continue...");
+    await waitForIBCConnection("secretdev-1", "http://localhost:9091");
+    await waitForIBCConnection("secretdev-2", "http://localhost:9391");
+
+    await waitForIBCChannel(
+      "secretdev-1",
+      "http://localhost:9091",
+      "channel-0"
+    );
+    await waitForIBCChannel(
+      "secretdev-2",
+      "http://localhost:9391",
+      "channel-0"
+    );
+    console.log("channels are opened, can continue...");
   }, 180_000 /* 3 minutes */);
 
   test.only("transfer sanity", async () => {

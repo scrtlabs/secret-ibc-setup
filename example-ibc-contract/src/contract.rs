@@ -1,11 +1,6 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::Operation;
-use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse,
-    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
-    IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, Response, StdResult,
-};
+use crate::msg::{ExecuteMsg, InstantiateMsg, PacketMsg, QueryMsg};
+use crate::state::{Channel, Operation};
+use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Response, StdResult, IbcMsg, IbcTimeout};
 use serde::{Deserialize, Serialize};
 
 pub const IBC_APP_VERSION: &str = "ibc-v1";
@@ -36,14 +31,25 @@ pub fn instantiate(
 
 #[entry_point]
 pub fn execute(
-    _deps: DepsMut,
-    _env: Env,
+    deps: DepsMut,
+    env: Env,
     _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> StdResult<Response> {
+    const PACKET_LIFETIME: u64 = 60 * 60;
+
     match msg {
-        ExecuteMsg::Increment { addition: _ } => {
-            Ok(Response::default())
+        ExecuteMsg::SendIbcPacket { message } => {
+            let channel_id = Channel::get_last_opened(deps.storage)?;
+            let packet = PacketMsg::Message {
+                value: channel_id.clone() + &message,
+            };
+
+            return Ok(Response::new().add_message(IbcMsg::SendPacket {
+                channel_id,
+                data: to_binary(&packet)?,
+                timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
+            }));
         }
     }
 }
@@ -132,16 +138,22 @@ pub fn ibc_channel_connect(
             ]
         })?,
 
-        IbcChannelConnectMsg::OpenConfirm { channel } => Operation::save_last(
-            deps.storage, Operation {
-                name: "ChannelOpen/Confirm".to_string(),
-                parameters: vec![
-                    format!("connection_id: {}", channel.connection_id),
-                    format!("channel_id: {}", channel.endpoint.channel_id),
-                    format!("port_id: {}", channel.endpoint.port_id),
-                ]
-            }
-        )?,
+        IbcChannelConnectMsg::OpenConfirm { channel } => {
+            Operation::save_last(
+                deps.storage, Operation {
+                    name: "ChannelOpen/Confirm".to_string(),
+                    parameters: vec![
+                        format!("connection_id: {}", channel.connection_id),
+                        format!("channel_id: {}", channel.endpoint.channel_id),
+                        format!("port_id: {}", channel.endpoint.port_id),
+                    ]
+                }
+            )?;
+
+            // save channel to state
+            let channel_id = channel.endpoint.channel_id;
+            Channel::save_last_opened(deps.storage, channel_id)?;
+        },
 
         _ => {
             Operation::save_last(deps.storage, Operation {
