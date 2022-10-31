@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use cosmwasm_std::{Storage, StdResult, StdError};
 
 pub const KEY_LAST_IBC_OPERATION: &[u8] = b"last_op";
+pub const KEY_STORED_RANDOMNESS: &[u8] = b"randomness";
 pub const KEY_LAST_OPENED_CHANNEL: &[u8] = b"opened_channel";
 
 
@@ -40,5 +41,20 @@ impl Channel {
 
     pub fn save_last_opened(store: &mut dyn Storage, channel_id: String) -> StdResult<()> {
         LAST_OPENED_CHANNEL.save(store, &channel_id)
+    }
+}
+
+pub static STORED_RANDOMNESS: Item<u32> = Item::new(KEY_STORED_RANDOMNESS);
+
+pub struct StoredRandomness {}
+impl StoredRandomness {
+    pub fn get(store: &dyn Storage) -> StdResult<u32> {
+       STORED_RANDOMNESS
+            .load(store)
+            .map_err(|_err| StdError::generic_err("no randomness was received on this contract yet"))
+    }
+
+    pub fn save(store: &mut dyn Storage, random_value: u32) -> StdResult<()> {
+        STORED_RANDOMNESS.save(store, &random_value)
     }
 }

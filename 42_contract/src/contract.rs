@@ -1,6 +1,6 @@
 use crate::msg::{ExecuteMsg, InstantiateMsg, PacketMsg, QueryMsg};
-use crate::state::{Channel, Operation};
-use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Response, StdResult, IbcMsg, IbcTimeout};
+use crate::state::{Channel, Operation, StoredRandomness};
+use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Response, StdResult, IbcMsg, IbcTimeout, IbcPacket, from_binary};
 use serde::{Deserialize, Serialize};
 
 pub const IBC_APP_VERSION: &str = "ibc-v1";
@@ -51,6 +51,17 @@ pub fn execute(
                 timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
             }));
         }
+
+        ExecuteMsg::RequestRandomnessFromOtherChain { } => {
+            let channel_id = Channel::get_last_opened(deps.storage)?;
+            let packet = PacketMsg::RequestRandomness { job_id: "request-randomness-id".to_string() };
+
+            return Ok(Response::new().add_message(IbcMsg::SendPacket {
+                channel_id,
+                data: to_binary(&packet)?,
+                timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
+            }));
+        }
     }
 }
 
@@ -58,6 +69,12 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::LastIbcOperation {} => Ok(
+            to_binary(
+                &Operation::get_last(deps.storage)?
+            )?
+        ),
+
+        QueryMsg::ViewReceivedRandomness {} => Ok(
             to_binary(
                 &Operation::get_last(deps.storage)?
             )?
@@ -223,7 +240,32 @@ pub fn ibc_packet_receive(
         }
     )?;
 
-    Ok(IbcReceiveResponse::default())
+    let response = IbcReceiveResponse::new();
+
+    let packet: PacketMsg = from_binary(&msg.packet.data)?;
+    match packet {
+        PacketMsg::Test { .. } => {}
+        PacketMsg::Message { .. } => {}
+
+        PacketMsg::RequestRandomness { .. } => response.add_message(
+            IbcMsg::SendPacket {
+                channel_id,
+                data: to_binary(&PacketMsg::ReceiveRandomness {
+                    random_value: 42, // I swear I chose this number at random!
+                })?,
+                timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
+            }
+        ),
+
+        PacketMsg::ReceiveRandomness { random_value } => {
+            StoredRandomness::save(
+                deps.storage,
+                random_value
+            )?;
+        }
+    }
+
+    Ok(response)
 }
 
 #[entry_point]
