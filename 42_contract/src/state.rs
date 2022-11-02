@@ -29,7 +29,7 @@ impl Operation {
     }
 }
 
-pub static LAST_OPENED_CHANNEL: Item<String> = Item::new(KEY_LAST_IBC_OPERATION);
+pub static LAST_OPENED_CHANNEL: Item<String> = Item::new(KEY_LAST_OPENED_CHANNEL);
 
 pub struct Channel {}
 impl Channel {

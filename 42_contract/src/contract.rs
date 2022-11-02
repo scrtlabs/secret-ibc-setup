@@ -1,9 +1,17 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, PacketMsg, QueryMsg};
-use crate::state::{Channel, Operation, StoredRandomness};
-use cosmwasm_std::{entry_point, to_binary, Binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Response, StdResult, IbcMsg, IbcTimeout, IbcPacket, from_binary};
+use cosmwasm_std::{
+    Binary, Deps, DepsMut, entry_point, Env, from_binary, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
+    IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
+    IbcReceiveResponse, IbcTimeout, MessageInfo, Response, StdResult, to_binary,
+};
+
 use serde::{Deserialize, Serialize};
 
+use crate::msg::{ExecuteMsg, InstantiateMsg, PacketMsg, QueryMsg};
+use crate::state::{Channel, Operation, StoredRandomness};
+
 pub const IBC_APP_VERSION: &str = "ibc-v1";
+const PACKET_LIFETIME: u64 = 60 * 60;
 
 #[entry_point]
 pub fn instantiate(
@@ -12,19 +20,18 @@ pub fn instantiate(
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> StdResult<Response> {
-
     Operation::save_last(
         deps.storage,
         Operation {
             name: "Just initialized".to_string(),
-            parameters: vec![]
+            parameters: vec![],
         },
     )?;
 
     Ok(
         Response::default().add_attribute(
             "init",
-            to_binary(&Operation::get_last(deps.storage)?)?.to_string()
+            to_binary(&Operation::get_last(deps.storage)?)?.to_string(),
         )
     )
 }
@@ -36,8 +43,6 @@ pub fn execute(
     _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> StdResult<Response> {
-    const PACKET_LIFETIME: u64 = 60 * 60;
-
     match msg {
         ExecuteMsg::SendIbcPacket { message } => {
             let channel_id = Channel::get_last_opened(deps.storage)?;
@@ -52,9 +57,17 @@ pub fn execute(
             }));
         }
 
-        ExecuteMsg::RequestRandomnessFromOtherChain { } => {
+        ExecuteMsg::RequestRandomnessFromOtherChain {} => {
             let channel_id = Channel::get_last_opened(deps.storage)?;
             let packet = PacketMsg::RequestRandomness { job_id: "request-randomness-id".to_string() };
+
+            Operation::save_last(deps.storage, Operation {
+                name: "SendIbcPacket".to_string(),
+                parameters: vec![
+                    format!("channel_id: {}", channel_id),
+                    format!("content: {}", "job_id: request-randomness-id"),
+                ]
+            })?;
 
             return Ok(Response::new().add_message(IbcMsg::SendPacket {
                 channel_id,
@@ -95,7 +108,7 @@ pub fn ibc_channel_open(
                 format!("connection_id: {}", channel.connection_id),
                 format!("channel_id: {}", channel.endpoint.channel_id),
                 format!("port_id: {}", channel.endpoint.port_id),
-            ]
+            ],
         })?,
 
         IbcChannelOpenMsg::OpenTry {
@@ -108,7 +121,7 @@ pub fn ibc_channel_open(
                 format!("connection_id: {}", channel.connection_id),
                 format!("channel_id: {}", channel.endpoint.channel_id),
                 format!("port_id: {}", channel.endpoint.port_id),
-            ]
+            ],
         })?,
 
         _ => Operation::save_last(deps.storage, Operation {
@@ -151,8 +164,8 @@ pub fn ibc_channel_connect(
                 format!("counterparty_version: {}", counterparty_version),
                 format!("connection_id: {}", channel.connection_id),
                 format!("channel_id: {}", channel.endpoint.channel_id),
-                format!("port_id: {}", channel.endpoint.port_id)
-            ]
+                format!("port_id: {}", channel.endpoint.port_id),
+            ],
         })?,
 
         IbcChannelConnectMsg::OpenConfirm { channel } => {
@@ -163,14 +176,14 @@ pub fn ibc_channel_connect(
                         format!("connection_id: {}", channel.connection_id),
                         format!("channel_id: {}", channel.endpoint.channel_id),
                         format!("port_id: {}", channel.endpoint.port_id),
-                    ]
-                }
+                    ],
+                },
             )?;
 
             // save channel to state
             let channel_id = channel.endpoint.channel_id;
             Channel::save_last_opened(deps.storage, channel_id)?;
-        },
+        }
 
         _ => {
             Operation::save_last(deps.storage, Operation {
@@ -196,7 +209,7 @@ pub fn ibc_channel_close(
                 format!("connection_id: {}", channel.connection_id),
                 format!("channel_id: {}", channel.endpoint.channel_id),
                 format!("port_id: {}", channel.endpoint.port_id),
-            ]
+            ],
         })?,
 
         IbcChannelCloseMsg::CloseConfirm { channel } => Operation::save_last(
@@ -207,8 +220,8 @@ pub fn ibc_channel_close(
                     format!("connection_id: {}", channel.connection_id),
                     format!("channel_id: {}", channel.endpoint.channel_id),
                     format!("port_id: {}", channel.endpoint.port_id),
-                ]
-            }
+                ],
+            },
         )?,
 
         _ => Operation::save_last(deps.storage, Operation {
@@ -223,7 +236,7 @@ pub fn ibc_channel_close(
 #[entry_point]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> StdResult<IbcReceiveResponse> {
     Operation::save_last(
@@ -236,31 +249,33 @@ pub fn ibc_packet_receive(
                 format!("packet_src_port_id: {}", msg.packet.src.port_id),
                 format!("packet_src_channel_id: {}", msg.packet.src.channel_id),
                 format!("relayer: {}", msg.relayer),
-            ]
-        }
+            ],
+        },
     )?;
 
-    let response = IbcReceiveResponse::new();
+    let mut response = IbcReceiveResponse::new();
 
     let packet: PacketMsg = from_binary(&msg.packet.data)?;
     match packet {
         PacketMsg::Test { .. } => {}
         PacketMsg::Message { .. } => {}
 
-        PacketMsg::RequestRandomness { .. } => response.add_message(
-            IbcMsg::SendPacket {
-                channel_id,
-                data: to_binary(&PacketMsg::ReceiveRandomness {
-                    random_value: 42, // I swear I chose this number at random!
-                })?,
-                timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
-            }
-        ),
+        PacketMsg::RequestRandomness { .. } => {
+            response = response.add_message(
+                IbcMsg::SendPacket {
+                    channel_id: msg.packet.dest.channel_id,
+                    data: to_binary(&PacketMsg::ReceiveRandomness {
+                        random_value: 42, // I swear I chose this number at random!
+                    })?,
+                    timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
+                }
+            );
+        }
 
         PacketMsg::ReceiveRandomness { random_value } => {
             StoredRandomness::save(
                 deps.storage,
-                random_value
+                random_value,
             )?;
         }
     }
@@ -274,7 +289,6 @@ pub fn ibc_packet_ack(
     _env: Env,
     msg: IbcPacketAckMsg,
 ) -> StdResult<IbcBasicResponse> {
-
     Operation::save_last(
         deps.storage,
         Operation {
@@ -286,8 +300,8 @@ pub fn ibc_packet_ack(
                 format!("original_packet_src_port_id: {}", msg.original_packet.src.port_id),
                 format!("original_packet_src_channel_id: {}", msg.original_packet.src.channel_id),
                 format!("relayer: {}", msg.relayer),
-            ]
-        }
+            ],
+        },
     )?;
 
     Ok(IbcBasicResponse::default())
@@ -299,7 +313,6 @@ pub fn ibc_packet_timeout(
     _env: Env,
     msg: IbcPacketTimeoutMsg,
 ) -> StdResult<IbcBasicResponse> {
-
     Operation::save_last(
         deps.storage,
         Operation {
@@ -310,8 +323,8 @@ pub fn ibc_packet_timeout(
                 format!("original_packet_src_port_id: {}", msg.packet.src.port_id),
                 format!("original_packet_src_channel_id: {}", msg.packet.src.channel_id),
                 format!("relayer: {}", msg.relayer),
-            ]
-        }
+            ],
+        },
     )?;
 
     Ok(IbcBasicResponse::default())
