@@ -4,8 +4,8 @@ use schemars::JsonSchema;
 use cosmwasm_std::{Storage, StdResult, StdError};
 
 pub const KEY_LAST_IBC_OPERATION: &[u8] = b"last_op";
-pub const KEY_STORED_RANDOMNESS: &[u8] = b"randomness";
 pub const KEY_LAST_OPENED_CHANNEL: &[u8] = b"opened_channel";
+pub const KEY_STORED_RANDOMNESS: &[u8] = b"randomness";
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

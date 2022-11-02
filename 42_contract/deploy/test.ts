@@ -136,7 +136,11 @@ describe("IBC", () => {
     console.log("channels are opened, can continue...");
   }, 180_000 /* 3 minutes */);
 
-  test.only("transfer sanity", async () => {
+  test.only("just setup contracts", async () => {
+    console.log("empty test to run the beforeAll");
+  });
+
+  test("transfer sanity", async () => {
     console.log("starting transfer sanity");
     const denom = ibcDenom(
       [{

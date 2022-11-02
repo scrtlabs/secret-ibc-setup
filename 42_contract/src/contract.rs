@@ -43,6 +43,11 @@ pub fn execute(
     _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> StdResult<Response> {
+    Operation::save_last(deps.storage, Operation {
+        name: "execute".to_string(),
+        parameters: vec![]
+    })?;
+
     match msg {
         ExecuteMsg::SendIbcPacket { message } => {
             let channel_id = Channel::get_last_opened(deps.storage)?;
@@ -89,7 +94,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
         QueryMsg::ViewReceivedRandomness {} => Ok(
             to_binary(
-                &Operation::get_last(deps.storage)?
+                &StoredRandomness::get(deps.storage)?
             )?
         )
     }
@@ -154,19 +159,28 @@ pub fn ibc_channel_connect(
     _env: Env,
     msg: IbcChannelConnectMsg,
 ) -> StdResult<IbcBasicResponse> {
+
+
+
     match msg {
         IbcChannelConnectMsg::OpenAck {
             channel,
             counterparty_version,
-        } => Operation::save_last(deps.storage, Operation {
-            name: "ChannelConnect/Ack".to_string(),
-            parameters: vec![
-                format!("counterparty_version: {}", counterparty_version),
-                format!("connection_id: {}", channel.connection_id),
-                format!("channel_id: {}", channel.endpoint.channel_id),
-                format!("port_id: {}", channel.endpoint.port_id),
-            ],
-        })?,
+        } => {
+            Operation::save_last(deps.storage, Operation {
+                name: "ChannelConnect/Ack".to_string(),
+                parameters: vec![
+                    format!("counterparty_version: {}", counterparty_version),
+                    format!("connection_id: {}", channel.connection_id),
+                    format!("channel_id: {}", channel.endpoint.channel_id),
+                    format!("port_id: {}", channel.endpoint.port_id),
+                ],
+            })?;
+
+            // save channel to state
+            let channel_id = channel.endpoint.channel_id;
+            Channel::save_last_opened(deps.storage, channel_id)?;
+        },
 
         IbcChannelConnectMsg::OpenConfirm { channel } => {
             Operation::save_last(
@@ -233,6 +247,11 @@ pub fn ibc_channel_close(
     Ok(IbcBasicResponse::default())
 }
 
+fn ack_success() -> Binary {
+    let res = PacketMsg::ReceiveRandomness { random_value: 52 };
+    to_binary(&res).unwrap()
+}
+
 #[entry_point]
 pub fn ibc_packet_receive(
     deps: DepsMut,
@@ -280,7 +299,9 @@ pub fn ibc_packet_receive(
         }
     }
 
-    Ok(response)
+    Ok(
+        response.set_ack(ack_success())
+    )
 }
 
 #[entry_point]
