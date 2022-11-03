@@ -276,32 +276,26 @@ pub fn ibc_packet_receive(
 
     let packet: PacketMsg = from_binary(&msg.packet.data)?;
     match packet {
-        PacketMsg::Test { .. } => {}
-        PacketMsg::Message { .. } => {}
+        PacketMsg::Test { .. } => {},
+        PacketMsg::Message { .. } => {},
 
         PacketMsg::RequestRandomness { .. } => {
-            response = response.add_message(
-                IbcMsg::SendPacket {
-                    channel_id: msg.packet.dest.channel_id,
-                    data: to_binary(&PacketMsg::ReceiveRandomness {
-                        random_value: 42, // I swear I chose this number at random!
-                    })?,
-                    timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(PACKET_LIFETIME)),
-                }
-            );
-        }
+            let res = PacketMsg::ReceiveRandomness {
+                random_value: 62, // I swear I chose this number at random!
+            };
+            let acknowledgement_data = to_binary(&res).unwrap();
 
-        PacketMsg::ReceiveRandomness { random_value } => {
-            StoredRandomness::save(
-                deps.storage,
-                random_value,
-            )?;
-        }
+            response = response.set_ack(acknowledgement_data);
+        },
+
+        _ => {}
     }
 
-    Ok(
-        response.set_ack(ack_success())
-    )
+    // Ok(
+    //     response.set_ack(ack_success())
+    // )
+
+    Ok(response)
 }
 
 #[entry_point]
@@ -324,6 +318,18 @@ pub fn ibc_packet_ack(
             ],
         },
     )?;
+
+    let ack_data = from_binary(&msg.acknowledgement.data)?;
+    match ack_data {
+        PacketMsg::ReceiveRandomness { random_value } => {
+            StoredRandomness::save(
+                deps.storage,
+                random_value,
+            )?;
+        },
+
+        _ => {}
+    }
 
     Ok(IbcBasicResponse::default())
 }
